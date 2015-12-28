@@ -39,6 +39,7 @@ public:
 	void RefreshStateGJ1(void);
 	void RefreshStateGJ2(void);
 	void RefreshStateGJ3(void);
+	bool Drive_GJ_Move(int DeviceIndex , int AxisIndex);
 
 public:
 	NI::CNiButton state_Gj1;
@@ -68,7 +69,6 @@ public:
 
 	NI::CNiNumEdit CutMovSpeedMulti;
 	NI::CNiNumEdit CutSpeedMulti;
-	NI::CNiNumEdit CutAngle;
 	NI::CNiNumEdit CutDeepth;
 	NI::CNiNumEdit StepSpeedBase;
 	NI::CNiNumEdit StepSpeedMulti;
@@ -127,6 +127,7 @@ public:
 public:
 	CComboBox ShowStateMode;
 	CStatic m_logo;
+	CComboBox CutAngle;
 
 public:
 	afx_msg void OnCbnSelchangeComboStepDriver();

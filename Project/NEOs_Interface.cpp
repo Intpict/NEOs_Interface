@@ -77,6 +77,15 @@ BOOL CNEOs_InterfaceApp::InitInstance()
 			break;
 		}
 	}
+
+	for(int k=0; k<Device_Num; k++){
+		if(INVALID_HANDLE_VALUE != m_hDeviceApp[k]){
+			USB1020_SetLP(m_hDeviceApp[k], USB1020_ALLAXIS, 0); // 设置逻辑位置计数器
+			USB1020_SetEP(m_hDeviceApp[k], USB1020_ALLAXIS,	0);	// 设置实位计数器 		 	
+			USB1020_SetAccofst(m_hDeviceApp[k], USB1020_ALLAXIS, 0);	// 设置加速计数器偏移
+		}
+	}
+
 	//**************************************************************************************
 	int Len = GetSystemMetrics(SM_CXSCREEN);  // 取得屏幕宽度
 	if(Len<1024) // 如果屏幕宽度大小小于1024，则**
@@ -115,11 +124,7 @@ BOOL CNEOs_InterfaceApp::InitInstance()
 		return FALSE;
 
 	m_pMainWnd = pMainFrame;
-	// 仅当具有后缀时才调用 DragAcceptFiles
-	//  在 MDI 应用程序中，这应在设置 m_pMainWnd 之后立即发生
-	
-	//  m_nCmdShow = SW_SHOWMAXIMIZED;	
-	// 启用拖/放
+
 	m_pMainWnd->DragAcceptFiles();
     ::SetProp(m_pMainWnd->GetSafeHwnd(), m_pszExeName, (HANDLE)1);
 	
@@ -179,8 +184,8 @@ void CNEOs_InterfaceApp::OnAppAbout()
 int CNEOs_InterfaceApp::ExitInstance()
 {
 	// TODO: 在此添加专用代码和/或调用基类
-	for(int i=0;i<TotelDeviceNum;i++){
-		if(m_hDeviceApp[i]=INVALID_HANDLE_VALUE) 
+	for(int i=0; i<TotelDeviceNum; i++){
+		if(m_hDeviceApp[i] != INVALID_HANDLE_VALUE) 
 			USB1020_ReleaseDevice(m_hDeviceApp);	
 	}
 	return CWinApp::ExitInstance();

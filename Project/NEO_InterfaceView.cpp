@@ -31,7 +31,6 @@ void CNEO_InterfaceView::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_WORK1_CONTINUE, CutContinue);
 	DDX_Control(pDX, IDC_WORK1_MOVSPEED_MULTI, CutMovSpeedMulti);
 	DDX_Control(pDX, IDC_WORK1_CUTSPEED_MULTI, CutSpeedMulti);
-	DDX_Control(pDX, IDC_WORK1_ANGLE, CutAngle);
 	DDX_Control(pDX, IDC_WORK1_DEEP, CutDeepth);
 	DDX_Control(pDX, IDC_CUTSTATE_RESET, CutState_Reset);
 	DDX_Control(pDX, IDC_CUTSTATE_SHIFT, CutState_Shift);
@@ -79,6 +78,7 @@ void CNEO_InterfaceView::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_GJ34_STATE, Gj34_State);
 	DDX_Control(pDX, IDC_COMBO_STATEMODE, ShowStateMode);
 	DDX_Control(pDX, IDC_STATIC_LOGO, m_logo);
+	DDX_Control(pDX, IDC_COMBO_CUT_ANGLE, CutAngle);
 }
 
 BEGIN_MESSAGE_MAP(CNEO_InterfaceView, CFormView)
@@ -155,12 +155,36 @@ void CNEO_InterfaceView::OnInitialUpdate()
 	//初始化配置窗口
 	StepMode_Dir.SetCurSel(USB1020_PDIRECTION);
 	StepMode_Driver.SetCurSel(USB1020_LV); 
+	StepDvPulseNum.EnableWindow(FALSE);
 	CutMotorDir.SetCurSel(USB1020_PDIRECTION);
 	ShowStateMode.SetCurSel(PULSENUMMODE);
-	StepDvPulseNum.EnableWindow(FALSE);
+	StepDvPulseNum.SetValue(1000);
+	StepSpeedBase.SetValue(100);
 	StepSpeedMulti.SetValue(1);
+	StepSpeedAcc.SetValue(150);
+	StepSpeedDec.SetValue(150);
 
 	//初始化控制板卡参数信息
+	for(int i=0; i<TotelDeviceNum; i++)
+		for (int j=0; j<AxisNum; j++)
+		{
+			LC[i][j].AxisNum = j;						// 轴号(USB1020_XAXIS:X轴; USB1020_YAXIS:Y轴;USB1020_ZAXIS:Z轴; 
+			LC[i][j].LV_DV= StepMode_Driver.GetCurSel();				// 驱动方式 USB1020_DV:定长驱动 USB1020_LV: 连续驱动
+			LC[i][j].PulseMode = USB1020_CPDIR;		// 模式0：CW/CCW方式，1：CP/DIR方式 
+			LC[i][j].Line_Curve = USB1020_LINE;		// 直线曲线(0:直线加/减速; 1:S曲线加/减速)
+			LC[i][j].Direction = StepMode_Dir.GetCurSel();     //方向
+			LC[i][j].PLSLogLever =  0;
+			LC[i][j].DIRLogLever = 0;
+			LC[i][j].DecMode = 0;
+			LC[i][j].nPulseNum = StepDvPulseNum.Value;
+			DL[i][j].Multiple = StepSpeedMulti.Value;       //倍率
+			DL[i][j].Acceleration = StepSpeedAcc.Value;				// 加速度(125~1000,000)(直线加减速驱动中加速度一直不变）
+			DL[i][j].Deceleration = StepSpeedDec.Value;				// 减速度(125~1000000)
+			DL[i][j].StartSpeed = 300;                  // 初始速度
+			DL[i][j].DriveSpeed = StepSpeedBase.Value;      //驱动速度
+			DL[i][j].DecIncRate = 1000;
+			DL[i][j].AccIncRate = 1000;
+		}
 }
 
 
@@ -212,14 +236,22 @@ void CNEO_InterfaceView::ClickWork1Continue()
 
 void CNEO_InterfaceView::ClickGj11Control()
 {
-	if(Gj11_Control.Value){
-	}else{
-	}
 }
 
 void CNEO_InterfaceView::ClickGj21Control()
 {
-	// TODO: 在此处添加消息处理程序代码
+	int DeviceIndex = 1, AxisIndex = 0;
+	if(INVALID_HANDLE_VALUE == m_theApp->m_hDeviceApp[DeviceIndex]){
+		AfxMessageBox("关节驱动连接失败！");
+		return;
+	}
+	if(Gj21_Control.Value){
+		if(!Drive_GJ_Move(DeviceIndex, AxisIndex))
+			AfxMessageBox("关节启动失败！");
+	}else{
+		if(!USB1020_InstStop(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum))
+			AfxMessageBox("关节停止失败！");
+	}
 }
 
 void CNEO_InterfaceView::ClickGj31Control()
@@ -276,9 +308,31 @@ void CNEO_InterfaceView::ClickGj34Control()
 void CNEO_InterfaceView::OnCbnSelchangeComboStepDriver()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	if (StepMode_Driver.GetCurSel()==USB1020_LV)
+	if (StepMode_Driver.GetCurSel() == USB1020_LV)
 		StepDvPulseNum.EnableWindow(FALSE);
 	else
         StepDvPulseNum.EnableWindow(TRUE);
 }
 
+bool CNEO_InterfaceView::Drive_GJ_Move(int DeviceIndex , int AxisIndex)
+{
+	//基本参数设置
+	DL[DeviceIndex][AxisIndex].DriveSpeed = StepSpeedBase.Value;
+	DL[DeviceIndex][AxisIndex].Multiple = LONG(StepSpeedMulti.Value);
+	LC[DeviceIndex][AxisIndex].Direction =  StepMode_Dir.GetCurSel();
+	//驱动模式设置
+	LC[DeviceIndex][AxisIndex].LV_DV = StepMode_Driver.GetCurSel();
+	if (USB1020_DV == LC[DeviceIndex][AxisIndex].LV_DV)
+		LC[DeviceIndex][AxisIndex].nPulseNum = LONG(StepDvPulseNum.Value);
+	//初始化运动板卡
+	if(!USB1020_SetEncoderSignalType(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum, 0, 0))
+		return FALSE;
+	if(!USB1020_PulseInputMode(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum, 0))
+		return FALSE;
+	if(!USB1020_InitLVDV(m_theApp->m_hDeviceApp[DeviceIndex], &DL[DeviceIndex][AxisIndex],  &LC[DeviceIndex][AxisIndex]))
+		return FALSE;
+	//驱动该轴运动
+	if(!USB1020_StartLVDV(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum))
+		return FALSE;
+	return TRUE;
+}

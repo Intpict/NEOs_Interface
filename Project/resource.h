@@ -71,6 +71,8 @@
 #define IDC_ONLY_EXPLAIN1               1077
 #define IDC_ONLY_EXPLAIN2               1078
 #define IDC_STATIC_LOGO                 1079
+#define IDC_CO                          1080
+#define IDC_COMBO_CUT_ANGLE             1080
 #define ID_32771                        32771
 #define ID_32772                        32772
 #define ID_CreateIntFace                32773
@@ -81,7 +83,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        140
 #define _APS_NEXT_COMMAND_VALUE         32774
-#define _APS_NEXT_CONTROL_VALUE         1080
+#define _APS_NEXT_CONTROL_VALUE         1081
 #define _APS_NEXT_SYMED_VALUE           104
 #endif
 #endif
