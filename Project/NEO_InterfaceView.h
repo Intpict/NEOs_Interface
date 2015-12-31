@@ -36,18 +36,22 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnClose();
 	virtual void OnInitialUpdate();
-	void RefreshStateGJ1(void);
-	void RefreshStateGJ2(void);
-	void RefreshStateGJ3(void);
+	void UpdateState(int DeviceIndex);
+	void UpdatePos(int DeviceIndex);
 	bool Drive_GJ_Move(int DeviceIndex , int AxisIndex);
+	void GJ_Ctrl_Event(NI::CNiButton &Gj_Ctrl, int DeviceIndex , int AxisIndex);
+	void Cut_Ctrl_Event(NI::CNiButton &Cut_Ctrl, int DeviceIndex);
+	bool IsRunAuto();
+	bool IsRunSingle();
+	void ReviseCtrlButtonValue(NI::CNiButton &Gj_Ctrl, int DeviceIndex , int AxisIndex, bool value);
 
 public:
 	NI::CNiButton state_Gj1;
 	NI::CNiButton state_Gj2;
 	NI::CNiButton state_Gj3;
-    NI::CNiButton CutStart;
-	NI::CNiButton CutStop;
-	NI::CNiButton CutContinue;
+    NI::CNiButton ShiftButton;
+	NI::CNiButton CutButton;
+	NI::CNiButton ResetButton;
 	NI::CNiButton CutState_Reset;
 	NI::CNiButton CutState_Shift;
 	NI::CNiButton CutState_Cutting;
@@ -102,13 +106,8 @@ public:
 	DECLARE_EVENTSINK_MAP()
 
 public:
-	void ClickWork1Start();
-	void ClickWork1Stop();
-	void ClickWork1Continue();
-
 	CComboBox StepMode_Dir;
 	CComboBox StepMode_Driver;
-	CComboBox CutMotorDir;
 
 public:
 	void ClickGj11Control();
@@ -123,6 +122,9 @@ public:
 	void ClickGj14Control();
 	void ClickGj24Control();
 	void ClickGj34Control();
+	void ClickShiftSwitch();
+	void ClickCutSwitch();
+	void ClickResetSwitch();
 
 public:
 	CComboBox ShowStateMode;
@@ -133,10 +135,13 @@ public:
 	afx_msg void OnCbnSelchangeComboStepDriver();
 
 private:
-	bool single_refresh_flag[3];	//单步模式更新标志位， 分别对应三个关节腿
-	bool autoctrl_refresh_flag[3];	//自动控制模式更新标志位， 分别对应三个关节腿
 	USB1020_PARA_DataList DL[3][3];		//公用配置参数，分别对应三关节的X，Y，Z轴     
 	USB1020_PARA_LCData LC[3][3];		// 直线运动配置参数，分别对应三关节的X，Y，Z轴
+	USB1020_PARA_DO Para[3];     //IO输出，用于控制切割电机运动
+	USB1020_PARA_RR0 RR0[3];	   //状态寄存器RR0
+	LONG PosInfo[3][3];     //存储各关节位置信息
+	LONG m_count[3][3];    //用于矫正定长模式下的关节启动按钮状态
+	afx_msg void OnBnClickedClear();
 };
 
 #endif

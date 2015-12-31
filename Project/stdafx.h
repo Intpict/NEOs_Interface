@@ -36,5 +36,8 @@ const int TotelDeviceNum = 3;
 //单卡总的轴数
 const int AxisNum = 3;
 
+//矫正计数的修正值
+const int ReviseCount = 5;
+
 #define   PULSENUMMODE    0x1
 #define   ANGLEMODE           0x0

@@ -59,26 +59,25 @@ BOOL CNEOs_InterfaceApp::InitInstance()
 
 	for (int i=0;i<Device_Num;i++)
 	{
-		switch (DevicePhysID[i])
-		{
-		case USB1020_1:                
-		    m_hDeviceApp[0]=hDeviceTemp[i];
-            Device_link_state[0]=TRUE;
-			break;
-		case USB1020_2:
-		    m_hDeviceApp[1]=hDeviceTemp[i];
-			Device_link_state[1]=TRUE;
-			break;
-		case USB1020_3:
-			m_hDeviceApp[2]=hDeviceTemp[i];
-			Device_link_state[2]=TRUE;
-			break;
-		default:
-			break;
+		switch (DevicePhysID[i]){
+			case USB1020_1:                
+				m_hDeviceApp[0]=hDeviceTemp[i];
+				Device_link_state[0]=TRUE;
+				break;
+			case USB1020_2:
+				m_hDeviceApp[1]=hDeviceTemp[i];
+				Device_link_state[1]=TRUE;
+				break;
+			case USB1020_3:
+				m_hDeviceApp[2]=hDeviceTemp[i];
+				Device_link_state[2]=TRUE;
+				break;
+			default:
+				break;
 		}
 	}
 
-	for(int k=0; k<Device_Num; k++){
+	for(int k=0; k<TotelDeviceNum; k++){
 		if(INVALID_HANDLE_VALUE != m_hDeviceApp[k]){
 			USB1020_SetLP(m_hDeviceApp[k], USB1020_ALLAXIS, 0); // 设置逻辑位置计数器
 			USB1020_SetEP(m_hDeviceApp[k], USB1020_ALLAXIS,	0);	// 设置实位计数器 		 	

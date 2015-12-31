@@ -1,3 +1,4 @@
+#include <string>
 #include "stdafx.h"
 #include "NEOs_Interface.h"
 #include "NEO_InterfaceView.h"
@@ -26,9 +27,9 @@ void CNEO_InterfaceView::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SHOWGJ1, state_Gj1);
 	DDX_Control(pDX, IDC_SHOWGJ2, state_Gj2);
 	DDX_Control(pDX, IDC_SHOWGJ3, state_Gj3);
-	DDX_Control(pDX, IDC_WORK1_START, CutStart);
-	DDX_Control(pDX, IDC_WORK1_STOP, CutStop);
-	DDX_Control(pDX, IDC_WORK1_CONTINUE, CutContinue);
+	DDX_Control(pDX, IDC_SHIFT_SWITCH, ShiftButton);
+	DDX_Control(pDX, IDC_CUT_SWITCH, CutButton);
+	DDX_Control(pDX, IDC_RESET_SWITCH, ResetButton);
 	DDX_Control(pDX, IDC_WORK1_MOVSPEED_MULTI, CutMovSpeedMulti);
 	DDX_Control(pDX, IDC_WORK1_CUTSPEED_MULTI, CutSpeedMulti);
 	DDX_Control(pDX, IDC_WORK1_DEEP, CutDeepth);
@@ -42,7 +43,6 @@ void CNEO_InterfaceView::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_STEP_DVPLUSENUM, StepDvPulseNum);
 	DDX_Control(pDX, IDC_COMBO_STEP_DIR, StepMode_Dir);
 	DDX_Control(pDX, IDC_COMBO_STEP_DRIVER, StepMode_Driver);
-	DDX_Control(pDX, IDC_COMBO_CUTMOTOR,CutMotorDir);
 	DDX_Control(pDX, IDC_GJ11_CONTROL,Gj11_Control);
 	DDX_Control(pDX, IDC_GJ12_CONTROL,Gj12_Control);
 	DDX_Control(pDX, IDC_GJ13_CONTROL,Gj13_Control);
@@ -86,20 +86,18 @@ BEGIN_MESSAGE_MAP(CNEO_InterfaceView, CFormView)
 	ON_WM_TIMER()
 	ON_WM_CLOSE()
 	ON_CBN_SELCHANGE(IDC_COMBO_STEP_DRIVER, &CNEO_InterfaceView::OnCbnSelchangeComboStepDriver)
+	ON_BN_CLICKED(IDC_CLEAR, &CNEO_InterfaceView::OnBnClickedClear)
 END_MESSAGE_MAP()
-
 
 // CNEO_InterfaceView 诊断
 
 #ifdef _DEBUG
-void CNEO_InterfaceView::AssertValid() const
-{
+void CNEO_InterfaceView::AssertValid() const{
 	CFormView::AssertValid();
 }
 
 #ifndef _WIN32_WCE
-void CNEO_InterfaceView::Dump(CDumpContext& dc) const
-{
+void CNEO_InterfaceView::Dump(CDumpContext& dc) const{
 	CFormView::Dump(dc);
 }
 #endif
@@ -107,8 +105,7 @@ void CNEO_InterfaceView::Dump(CDumpContext& dc) const
 
 
 // CNEO_InterfaceView 消息处理程序
-int CNEO_InterfaceView::OnCreate(LPCREATESTRUCT lpCreateStruct)
-{
+int CNEO_InterfaceView::OnCreate(LPCREATESTRUCT lpCreateStruct){
 	if (CFormView::OnCreate(lpCreateStruct) == -1)
 		return -1;
 	// TODO:  在此添加您专用的创建代码
@@ -116,24 +113,27 @@ int CNEO_InterfaceView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-void CNEO_InterfaceView::OnTimer(UINT_PTR nIDEvent)
-{
-	// TODO: 在此添加消息处理程序代码和/或调用默认值
+void CNEO_InterfaceView::OnTimer(UINT_PTR nIDEvent){
 	switch(nIDEvent) {
 		case 1:
-        break;
+			for (int DeviceIndex = 0; DeviceIndex<TotelDeviceNum; DeviceIndex++)
+			{
+				if(INVALID_HANDLE_VALUE == m_theApp->m_hDeviceApp[DeviceIndex])
+					continue;
+				//更新关节状态信息
+				UpdateState(DeviceIndex);
+			}
+			break;
 	}
 	CFormView::OnTimer(nIDEvent);
 }
 
-void CNEO_InterfaceView::OnClose()
-{
-	// TODO: 在此添加消息处理程序代码和/或调用默认值
+void CNEO_InterfaceView::OnClose(){
+	KillTimer(1);
 	CFormView::OnClose();
 }
 
-void CNEO_InterfaceView::OnInitialUpdate()
-{
+void CNEO_InterfaceView::OnInitialUpdate(){
 	CFormView::OnInitialUpdate();
 	ResizeParentToFit();
 
@@ -151,12 +151,11 @@ void CNEO_InterfaceView::OnInitialUpdate()
 	static CBitmap logo; 
 	logo.LoadBitmap(IDB_LOGO);
     m_logo.SetBitmap(logo);
-   
+
 	//初始化配置窗口
 	StepMode_Dir.SetCurSel(USB1020_PDIRECTION);
 	StepMode_Driver.SetCurSel(USB1020_LV); 
 	StepDvPulseNum.EnableWindow(FALSE);
-	CutMotorDir.SetCurSel(USB1020_PDIRECTION);
 	ShowStateMode.SetCurSel(PULSENUMMODE);
 	StepDvPulseNum.SetValue(1000);
 	StepSpeedBase.SetValue(100);
@@ -165,17 +164,27 @@ void CNEO_InterfaceView::OnInitialUpdate()
 	StepSpeedDec.SetValue(150);
 
 	//初始化控制板卡参数信息
-	for(int i=0; i<TotelDeviceNum; i++)
+	for(int i=0; i<TotelDeviceNum; i++){
+		Para[i].OUT0 = 0;
+		Para[i].OUT1 = 0;
+		Para[i].OUT2 = 0;
+		Para[i].OUT3 = 0;
+		Para[i].OUT4 = 0;
+		Para[i].OUT5 = 0;
+		Para[i].OUT6 = 0;
+		Para[i].OUT7 = 0;
+		if (INVALID_HANDLE_VALUE != m_theApp->m_hDeviceApp[i])
+			USB1020_SetDeviceDO(m_theApp->m_hDeviceApp[i], USB1020_XAXIS, &Para[i]);
 		for (int j=0; j<AxisNum; j++)
 		{
 			LC[i][j].AxisNum = j;						// 轴号(USB1020_XAXIS:X轴; USB1020_YAXIS:Y轴;USB1020_ZAXIS:Z轴; 
-			LC[i][j].LV_DV= StepMode_Driver.GetCurSel();				// 驱动方式 USB1020_DV:定长驱动 USB1020_LV: 连续驱动
+			LC[i][j].LV_DV= StepMode_Driver.GetCurSel();	  // 驱动方式 USB1020_DV:定长驱动 USB1020_LV: 连续驱动
 			LC[i][j].PulseMode = USB1020_CPDIR;		// 模式0：CW/CCW方式，1：CP/DIR方式 
 			LC[i][j].Line_Curve = USB1020_LINE;		// 直线曲线(0:直线加/减速; 1:S曲线加/减速)
 			LC[i][j].Direction = StepMode_Dir.GetCurSel();     //方向
-			LC[i][j].PLSLogLever =  0;
-			LC[i][j].DIRLogLever = 0;
 			LC[i][j].DecMode = 0;
+			LC[i][j].PLSLogLever = 0;
+			LC[i][j].DIRLogLever = 0;
 			LC[i][j].nPulseNum = StepDvPulseNum.Value;
 			DL[i][j].Multiple = StepSpeedMulti.Value;       //倍率
 			DL[i][j].Acceleration = StepSpeedAcc.Value;				// 加速度(125~1000,000)(直线加减速驱动中加速度一直不变）
@@ -184,26 +193,13 @@ void CNEO_InterfaceView::OnInitialUpdate()
 			DL[i][j].DriveSpeed = StepSpeedBase.Value;      //驱动速度
 			DL[i][j].DecIncRate = 1000;
 			DL[i][j].AccIncRate = 1000;
+			m_count[i][j] = 0;    //初始化矫正计数器
 		}
-}
-
-
-void CNEO_InterfaceView::RefreshStateGJ1(void)
-{
-}
-
-void CNEO_InterfaceView::RefreshStateGJ2(void)
-{
-}
-
-void CNEO_InterfaceView::RefreshStateGJ3(void)
-{
+	}
+	SetTimer(1, 20 , NULL);  // 启动定时器1，用来刷新计数器和各关节状态
 }
 
 BEGIN_EVENTSINK_MAP(CNEO_InterfaceView, CFormView)
-	ON_EVENT(CNEO_InterfaceView, IDC_WORK1_START, DISPID_CLICK, CNEO_InterfaceView::ClickWork1Start, VTS_NONE)
-	ON_EVENT(CNEO_InterfaceView, IDC_WORK1_STOP, DISPID_CLICK, CNEO_InterfaceView::ClickWork1Stop, VTS_NONE)
-	ON_EVENT(CNEO_InterfaceView, IDC_WORK1_CONTINUE, DISPID_CLICK, CNEO_InterfaceView::ClickWork1Continue, VTS_NONE)
 	ON_EVENT(CNEO_InterfaceView, IDC_GJ11_CONTROL, DISPID_CLICK, CNEO_InterfaceView::ClickGj11Control, VTS_NONE)
 	ON_EVENT(CNEO_InterfaceView, IDC_GJ21_CONTROL, DISPID_CLICK, CNEO_InterfaceView::ClickGj21Control, VTS_NONE)
 	ON_EVENT(CNEO_InterfaceView, IDC_GJ31_CONTROL, DISPID_CLICK, CNEO_InterfaceView::ClickGj31Control, VTS_NONE)
@@ -216,106 +212,128 @@ BEGIN_EVENTSINK_MAP(CNEO_InterfaceView, CFormView)
 	ON_EVENT(CNEO_InterfaceView, IDC_GJ14_CONTROL, DISPID_CLICK, CNEO_InterfaceView::ClickGj14Control, VTS_NONE)
 	ON_EVENT(CNEO_InterfaceView, IDC_GJ24_CONTROL, DISPID_CLICK, CNEO_InterfaceView::ClickGj24Control, VTS_NONE)
 	ON_EVENT(CNEO_InterfaceView, IDC_GJ34_CONTROL, DISPID_CLICK, CNEO_InterfaceView::ClickGj34Control, VTS_NONE)
+	ON_EVENT(CNEO_InterfaceView, IDC_SHIFT_SWITCH, DISPID_CLICK, CNEO_InterfaceView::ClickShiftSwitch, VTS_NONE)
+	ON_EVENT(CNEO_InterfaceView, IDC_CUT_SWITCH, DISPID_CLICK, CNEO_InterfaceView::ClickCutSwitch, VTS_NONE)
+	ON_EVENT(CNEO_InterfaceView, IDC_RESET_SWITCH, DISPID_CLICK, CNEO_InterfaceView::ClickResetSwitch, VTS_NONE)
 END_EVENTSINK_MAP()
 
-void CNEO_InterfaceView::ClickWork1Start()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj11Control(){
+	int DeviceIndex = 0, AxisIndex = 0;
+	GJ_Ctrl_Event(Gj11_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickWork1Stop()
-{
-	// TODO: 在此处添加消息处理程序代码
-}
-
-void CNEO_InterfaceView::ClickWork1Continue()
-{
-	// TODO: 在此处添加消息处理程序代码
-}
-
-
-void CNEO_InterfaceView::ClickGj11Control()
-{
-}
-
-void CNEO_InterfaceView::ClickGj21Control()
-{
+void CNEO_InterfaceView::ClickGj21Control(){
 	int DeviceIndex = 1, AxisIndex = 0;
-	if(INVALID_HANDLE_VALUE == m_theApp->m_hDeviceApp[DeviceIndex]){
-		AfxMessageBox("关节驱动连接失败！");
-		return;
-	}
-	if(Gj21_Control.Value){
-		if(!Drive_GJ_Move(DeviceIndex, AxisIndex))
-			AfxMessageBox("关节启动失败！");
-	}else{
-		if(!USB1020_InstStop(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum))
-			AfxMessageBox("关节停止失败！");
-	}
+	GJ_Ctrl_Event(Gj21_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickGj31Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj31Control(){
+	int DeviceIndex = 2, AxisIndex = 0;
+	GJ_Ctrl_Event(Gj31_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickGj12Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj12Control(){
+	int DeviceIndex = 0, AxisIndex = 1;
+	GJ_Ctrl_Event(Gj12_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickGj22Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj22Control(){
+	int DeviceIndex = 1, AxisIndex = 1;
+	GJ_Ctrl_Event(Gj22_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickGj32Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj32Control(){
+	int DeviceIndex = 2, AxisIndex = 1;
+	GJ_Ctrl_Event(Gj32_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickGj13Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj13Control(){
+	int DeviceIndex = 0, AxisIndex = 2;
+	GJ_Ctrl_Event(Gj13_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickGj23Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj23Control(){
+	int DeviceIndex = 1, AxisIndex = 2;
+	GJ_Ctrl_Event(Gj23_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickGj33Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj33Control(){
+	int DeviceIndex = 2, AxisIndex = 2;
+	GJ_Ctrl_Event(Gj33_Control, DeviceIndex, AxisIndex);
 }
 
-void CNEO_InterfaceView::ClickGj14Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj14Control(){
+	int DeviceIndex = 0;
+	Cut_Ctrl_Event(Gj14_Control, DeviceIndex);
 }
 
-void CNEO_InterfaceView::ClickGj24Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj24Control(){
+	int DeviceIndex = 1;
+	Cut_Ctrl_Event(Gj24_Control, DeviceIndex);
 }
 
-void CNEO_InterfaceView::ClickGj34Control()
-{
-	// TODO: 在此处添加消息处理程序代码
+void CNEO_InterfaceView::ClickGj34Control(){
+	int DeviceIndex = 2;
+	Cut_Ctrl_Event(Gj34_Control, DeviceIndex);
 }
 
 
-void CNEO_InterfaceView::OnCbnSelchangeComboStepDriver()
-{
-	// TODO: 在此添加控件通知处理程序代码
+void CNEO_InterfaceView::OnCbnSelchangeComboStepDriver(){
 	if (StepMode_Driver.GetCurSel() == USB1020_LV)
 		StepDvPulseNum.EnableWindow(FALSE);
 	else
         StepDvPulseNum.EnableWindow(TRUE);
 }
 
-bool CNEO_InterfaceView::Drive_GJ_Move(int DeviceIndex , int AxisIndex)
-{
+void CNEO_InterfaceView::GJ_Ctrl_Event(NI::CNiButton &Gj_Ctrl, int DeviceIndex , int AxisIndex){
+	if(INVALID_HANDLE_VALUE == m_theApp->m_hDeviceApp[DeviceIndex]){
+		std::string msg = "关节腿";
+		char index = '1' + DeviceIndex;
+		msg.push_back(index);
+		msg.append("连接失败!");
+		AfxMessageBox(msg.c_str());
+		Gj_Ctrl.Value ^= 0x1;
+		return;
+	}
+
+	if(IsRunAuto()){
+		AfxMessageBox("自动控制模式运行中!");
+		Gj_Ctrl.Value ^= 0x1;
+		return;
+	}
+
+	if(Gj_Ctrl.Value){
+		if(!Drive_GJ_Move(DeviceIndex, AxisIndex))
+			AfxMessageBox("启动失败!");
+	}else{
+		if(!USB1020_InstStop(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum))
+			AfxMessageBox("停止失败!");
+	}
+}
+
+void CNEO_InterfaceView::Cut_Ctrl_Event(NI::CNiButton &Cut_Ctrl, int DeviceIndex){
+	if (INVALID_HANDLE_VALUE == m_theApp->m_hDeviceApp[DeviceIndex]){
+		std::string msg = "关节腿";
+		char index = '1' + DeviceIndex;
+		msg.push_back(index);
+		msg.append("连接失败!");
+		AfxMessageBox(msg.c_str());
+		Cut_Ctrl.Value ^= 0x1;
+		return;
+	}
+	if (Cut_Ctrl.Value)
+	{
+		Para[DeviceIndex].OUT0 = 1;
+		if(!USB1020_SetDeviceDO(m_theApp->m_hDeviceApp[DeviceIndex], USB1020_XAXIS, &Para[DeviceIndex]))
+			AfxMessageBox("启动失败!");
+	}else{
+		Para[DeviceIndex].OUT0 = 0;
+		if(!USB1020_SetDeviceDO(m_theApp->m_hDeviceApp[DeviceIndex], USB1020_XAXIS, &Para[DeviceIndex]))
+			AfxMessageBox("停止失败!");
+	}
+}
+
+bool CNEO_InterfaceView::Drive_GJ_Move(int DeviceIndex , int AxisIndex){
 	//基本参数设置
 	DL[DeviceIndex][AxisIndex].DriveSpeed = StepSpeedBase.Value;
 	DL[DeviceIndex][AxisIndex].Multiple = LONG(StepSpeedMulti.Value);
@@ -324,7 +342,7 @@ bool CNEO_InterfaceView::Drive_GJ_Move(int DeviceIndex , int AxisIndex)
 	LC[DeviceIndex][AxisIndex].LV_DV = StepMode_Driver.GetCurSel();
 	if (USB1020_DV == LC[DeviceIndex][AxisIndex].LV_DV)
 		LC[DeviceIndex][AxisIndex].nPulseNum = LONG(StepDvPulseNum.Value);
-	//初始化运动板卡
+	//初始化运动板卡 
 	if(!USB1020_SetEncoderSignalType(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum, 0, 0))
 		return FALSE;
 	if(!USB1020_PulseInputMode(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum, 0))
@@ -335,4 +353,99 @@ bool CNEO_InterfaceView::Drive_GJ_Move(int DeviceIndex , int AxisIndex)
 	if(!USB1020_StartLVDV(m_theApp->m_hDeviceApp[DeviceIndex], LC[DeviceIndex][AxisIndex].AxisNum))
 		return FALSE;
 	return TRUE;
+}
+
+void CNEO_InterfaceView::ClickShiftSwitch()
+{
+	// TODO: 在此处添加消息处理程序代码
+}
+
+void CNEO_InterfaceView::ClickCutSwitch()
+{
+	// TODO: 在此处添加消息处理程序代码
+}
+
+void CNEO_InterfaceView::ClickResetSwitch()
+{
+	// TODO: 在此处添加消息处理程序代码
+}
+
+void CNEO_InterfaceView::OnBnClickedClear()
+{
+	for(int k=0; k<TotelDeviceNum; k++){
+		if(INVALID_HANDLE_VALUE != m_theApp->m_hDeviceApp[k]){
+			USB1020_SetLP(m_theApp->m_hDeviceApp[k], USB1020_ALLAXIS, 0); // 设置逻辑位置计数器
+			USB1020_SetEP(m_theApp->m_hDeviceApp[k], USB1020_ALLAXIS,	0);	// 设置实位计数器 		 	
+			USB1020_SetAccofst(m_theApp->m_hDeviceApp[k], USB1020_ALLAXIS, 0);	// 设置加速计数器偏移
+		}
+	}
+}
+
+bool CNEO_InterfaceView::IsRunAuto(){
+	if(ShiftButton.Value || CutButton.Value || ResetButton.Value)
+		return TRUE;
+	return FALSE;
+}
+
+bool CNEO_InterfaceView::IsRunSingle(){
+	if(Gj11_Control.Value || Gj12_Control.Value || Gj13_Control.Value || Gj14_Control.Value
+		|| Gj21_Control.Value || Gj22_Control.Value || Gj23_Control.Value || Gj24_Control.Value
+		|| Gj31_Control.Value || Gj32_Control.Value || Gj33_Control.Value || Gj34_Control.Value)
+		return TRUE;
+	return FALSE;
+}
+
+void CNEO_InterfaceView::UpdateState(int DeviceIndex){
+	USB1020_GetRR0Status(m_theApp->m_hDeviceApp[DeviceIndex], &(RR0[DeviceIndex]));
+	switch(DeviceIndex){
+		case 0:
+			Gj11_State.Value = bool(RR0[DeviceIndex].XDRV);
+			ReviseCtrlButtonValue(Gj11_Control, DeviceIndex, 0, Gj11_State.Value);
+			Gj12_State.Value = bool(RR0[DeviceIndex].YDRV);
+			ReviseCtrlButtonValue(Gj12_Control, DeviceIndex, 1, Gj12_State.Value);
+			Gj13_State.Value = bool(RR0[DeviceIndex].ZDRV);
+			ReviseCtrlButtonValue(Gj13_Control, DeviceIndex, 2, Gj13_State.Value);
+			Gj14_State.Value = bool(Para[DeviceIndex].OUT0);
+			break;
+		case 1:
+			Gj21_State.Value = bool(RR0[DeviceIndex].XDRV);
+			ReviseCtrlButtonValue(Gj21_Control, DeviceIndex, 0, Gj21_State.Value);
+			Gj22_State.Value = bool(RR0[DeviceIndex].YDRV);
+			ReviseCtrlButtonValue(Gj22_Control, DeviceIndex, 1, Gj22_State.Value);
+			Gj23_State.Value = bool(RR0[DeviceIndex].ZDRV);
+			ReviseCtrlButtonValue(Gj23_Control, DeviceIndex, 2, Gj23_State.Value);
+			Gj24_State.Value = bool(Para[DeviceIndex].OUT0);
+			break;
+		case 2:
+			Gj31_State.Value = bool(RR0[DeviceIndex].XDRV);
+			ReviseCtrlButtonValue(Gj31_Control, DeviceIndex, 0, Gj31_State.Value);
+			Gj32_State.Value = bool(RR0[DeviceIndex].YDRV);
+			ReviseCtrlButtonValue(Gj32_Control, DeviceIndex, 1, Gj32_State.Value);
+			Gj33_State.Value = bool(RR0[DeviceIndex].ZDRV);
+			ReviseCtrlButtonValue(Gj33_Control, DeviceIndex, 2, Gj33_State.Value);
+			Gj34_State.Value = bool(Para[DeviceIndex].OUT0);
+			break;
+		default:
+			break;
+	}
+}
+
+void CNEO_InterfaceView::ReviseCtrlButtonValue(NI::CNiButton &Gj_Ctrl, int DeviceIndex , int AxisIndex, bool value){
+	if(value != Gj_Ctrl.Value){
+		m_count[DeviceIndex][AxisIndex]++;
+		if(ReviseCount == m_count[DeviceIndex][AxisIndex]){
+			//保证不会自动变为运行状态
+			if(TRUE == value){
+				m_count[DeviceIndex][AxisIndex] = 0;
+			}else{
+				Gj_Ctrl.Value = value;
+			}
+		}
+	}else{
+		m_count[DeviceIndex][AxisIndex] = 0;
+	}
+}
+
+void CNEO_InterfaceView::UpdatePos(int DeviceIndex){
+
 }

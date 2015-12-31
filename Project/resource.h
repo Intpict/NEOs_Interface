@@ -14,9 +14,9 @@
 #define IDC_SHOWGJ2                     1018
 #define IDC_SHOWGJ3                     1019
 #define IDC_STATIC_WORK1                1021
-#define IDC_WORK1_START                 1022
-#define IDC_WORK1_STOP                  1023
-#define IDC_WORK1_CONTINUE              1024
+#define IDC_SHIFT_SWITCH                1022
+#define IDC_CUT_SWITCH                  1023
+#define IDC_RESET_SWITCH                1024
 #define IDC_CUTSTATE_RESET              1027
 #define IDC_CUTSTATE_SHIFT              1028
 #define IDC_CUTSTATE_CUTTING            1029
@@ -71,8 +71,9 @@
 #define IDC_ONLY_EXPLAIN1               1077
 #define IDC_ONLY_EXPLAIN2               1078
 #define IDC_STATIC_LOGO                 1079
-#define IDC_CO                          1080
 #define IDC_COMBO_CUT_ANGLE             1080
+#define IDC_BUTTON1                     1082
+#define IDC_CLEAR                       1082
 #define ID_32771                        32771
 #define ID_32772                        32772
 #define ID_CreateIntFace                32773
@@ -83,7 +84,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        140
 #define _APS_NEXT_COMMAND_VALUE         32774
-#define _APS_NEXT_CONTROL_VALUE         1081
+#define _APS_NEXT_CONTROL_VALUE         1083
 #define _APS_NEXT_SYMED_VALUE           104
 #endif
 #endif
