@@ -1,5 +1,6 @@
-#include <string>
 #include "stdafx.h"
+#include "stdio.h"
+#include "func.h"
 #include "NEOs_Interface.h"
 #include "NEO_InterfaceView.h"
 #include "NEOs_InterfaceDoc.h"
@@ -11,6 +12,47 @@
 IMPLEMENT_DYNCREATE(CNEO_InterfaceView, CFormView)
 
 CNEOs_InterfaceApp* m_theApp;   //指向App的全局指针
+double x_angle[Max_length],y_angle[Max_length],z_angle[Max_length];
+int x_pluse[Max_length-1],y_pluse[Max_length-1],z_pluse[Max_length-1];
+int x_angle_length = 0, x_pluse_length = 0;
+int y_angle_length = 0, y_pluse_length = 0;
+int z_angle_length = 0, z_pluse_length = 0;	
+
+UINT ShiftThread(LPVOID lpParam){
+	CNEO_InterfaceView* ptr = (CNEO_InterfaceView*)lpParam;
+	char ch[10];
+	ptr->ShiftSpeedMuti.GetWindowText(ch, 10);
+	int SpeedRatio = atoi(ch);
+	Work_State1_Set(m_theApp->m_hDeviceApp, ptr->x_realangle, ptr->y_realangle, ptr->z_realangle, x_angle[0],y_angle[0],z_angle[0], SpeedRatio);
+	ptr->ShiftFlag = FALSE;
+	return 0;
+}
+
+UINT CutThread(LPVOID lpParam){
+	CNEO_InterfaceView* ptr = (CNEO_InterfaceView*)lpParam;
+	char ch[10];
+	ptr->CutSpeedMuti.GetWindowText(ch, 10);
+	int SpeedRatio = atoi(ch);
+	Work_State2_Set(m_theApp->m_hDeviceApp, ptr->x_realangle, ptr->y_realangle, ptr->z_realangle, x_pluse, y_pluse, z_pluse, x_pluse_length, SpeedRatio, ptr->CutFlag);
+	ptr->CutFlag = FALSE;
+	return 0;
+}
+
+UINT ResetThread(LPVOID lpParam){
+	CNEO_InterfaceView* ptr = (CNEO_InterfaceView*)lpParam;
+	char ch[10];
+
+	ptr->CutSpeedMuti.GetWindowText(ch, 10);
+	int SpeedRatio = atoi(ch);
+	Work_State2_Reset(m_theApp->m_hDeviceApp, x_pluse, y_pluse, z_pluse, x_pluse_length, SpeedRatio, ptr->ResetFlag);
+
+	ptr->ShiftSpeedMuti.GetWindowText(ch, 10);
+	SpeedRatio = atoi(ch);
+	Work_State1_Reset(m_theApp->m_hDeviceApp, x_angle[0], y_angle[0],z_angle[0], SpeedRatio, ptr->ResetFlag);
+	ptr->ResetFlag = FALSE;
+	return 0;
+}
+
 
 CNEO_InterfaceView::CNEO_InterfaceView()
 	: CFormView(CNEO_InterfaceView::IDD)
@@ -30,9 +72,6 @@ void CNEO_InterfaceView::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SHIFT_SWITCH, ShiftButton);
 	DDX_Control(pDX, IDC_CUT_SWITCH, CutButton);
 	DDX_Control(pDX, IDC_RESET_SWITCH, ResetButton);
-	DDX_Control(pDX, IDC_WORK1_MOVSPEED_MULTI, CutMovSpeedMulti);
-	DDX_Control(pDX, IDC_WORK1_CUTSPEED_MULTI, CutSpeedMulti);
-	DDX_Control(pDX, IDC_WORK1_DEEP, CutDeepth);
 	DDX_Control(pDX, IDC_CUTSTATE_RESET, CutState_Reset);
 	DDX_Control(pDX, IDC_CUTSTATE_SHIFT, CutState_Shift);
 	DDX_Control(pDX, IDC_CUTSTATE_CUTTING, CutState_Cutting);
@@ -55,15 +94,6 @@ void CNEO_InterfaceView::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_GJ32_CONTROL,Gj32_Control);
 	DDX_Control(pDX, IDC_GJ33_CONTROL,Gj33_Control);
 	DDX_Control(pDX, IDC_GJ34_CONTROL,Gj34_Control);
-	DDX_Control(pDX, IDC_GJ11_ANGLE, Gj11_AngleShow);
-	DDX_Control(pDX, IDC_GJ12_ANGLE, Gj12_AngleShow);
-	DDX_Control(pDX, IDC_GJ13_ANGLE, Gj13_AngleShow);
-	DDX_Control(pDX, IDC_GJ21_ANGLE, Gj21_AngleShow);
-	DDX_Control(pDX, IDC_GJ22_ANGLE, Gj22_AngleShow);
-	DDX_Control(pDX, IDC_GJ23_ANGLE, Gj23_AngleShow);
-	DDX_Control(pDX, IDC_GJ31_ANGLE, Gj31_AngleShow);
-	DDX_Control(pDX, IDC_GJ32_ANGLE, Gj32_AngleShow);
-	DDX_Control(pDX, IDC_GJ33_ANGLE, Gj33_AngleShow);
 	DDX_Control(pDX, IDC_GJ11_STATE, Gj11_State);
 	DDX_Control(pDX, IDC_GJ12_STATE, Gj12_State);
 	DDX_Control(pDX, IDC_GJ13_STATE, Gj13_State);
@@ -79,6 +109,18 @@ void CNEO_InterfaceView::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_COMBO_STATEMODE, ShowStateMode);
 	DDX_Control(pDX, IDC_STATIC_LOGO, m_logo);
 	DDX_Control(pDX, IDC_COMBO_CUT_ANGLE, CutAngle);
+	DDX_Control(pDX, IDC_SHIFT_SPEED_MUTI, ShiftSpeedMuti);
+	DDX_Control(pDX, IDC_CUT_SPEED_MUTI, CutSpeedMuti);
+	DDX_Control(pDX, IDC_CUT_DEEPTH, CutDeepth);
+	DDX_Control(pDX, IDC_SHOW_ANGLE11, Gj11_AngleShow);
+	DDX_Control(pDX, IDC_SHOW_ANGLE12, Gj12_AngleShow);
+	DDX_Control(pDX, IDC_SHOW_ANGLE13, Gj13_AngleShow);
+	DDX_Control(pDX, IDC_SHOW_ANGLE21, Gj21_AngleShow);
+	DDX_Control(pDX, IDC_SHOW_ANGLE22, Gj22_AngleShow);
+	DDX_Control(pDX, IDC_SHOW_ANGLE23, Gj23_AngleShow);
+	DDX_Control(pDX, IDC_SHOW_ANGLE31, Gj31_AngleShow);
+	DDX_Control(pDX, IDC_SHOW_ANGLE32, Gj32_AngleShow);
+	DDX_Control(pDX, IDC_SHOW_ANGLE33, Gj33_AngleShow);
 }
 
 BEGIN_MESSAGE_MAP(CNEO_InterfaceView, CFormView)
@@ -101,14 +143,12 @@ void CNEO_InterfaceView::Dump(CDumpContext& dc) const{
 	CFormView::Dump(dc);
 }
 #endif
-#endif //_DEBUG
+#endif
 
 
-// CNEO_InterfaceView 消息处理程序
 int CNEO_InterfaceView::OnCreate(LPCREATESTRUCT lpCreateStruct){
 	if (CFormView::OnCreate(lpCreateStruct) == -1)
 		return -1;
-	// TODO:  在此添加您专用的创建代码
 	m_theApp = (CNEOs_InterfaceApp*)AfxGetApp();    //得到当前应用进程的指针
 	return 0;
 }
@@ -120,9 +160,14 @@ void CNEO_InterfaceView::OnTimer(UINT_PTR nIDEvent){
 			{
 				if(INVALID_HANDLE_VALUE == m_theApp->m_hDeviceApp[DeviceIndex])
 					continue;
-				//更新关节状态信息
-				UpdateState(DeviceIndex);
+				UpdateGJState(DeviceIndex);
+				UpdatePos(DeviceIndex);
 			}
+			RefreshPosShow();
+			RefreshAutoModeLight();
+			RefreshAutoModeCtrlButton();
+			break;
+		default:
 			break;
 	}
 	CFormView::OnTimer(nIDEvent);
@@ -130,13 +175,14 @@ void CNEO_InterfaceView::OnTimer(UINT_PTR nIDEvent){
 
 void CNEO_InterfaceView::OnClose(){
 	KillTimer(1);
+	m_theApp = NULL;
 	CFormView::OnClose();
 }
 
 void CNEO_InterfaceView::OnInitialUpdate(){
 	CFormView::OnInitialUpdate();
 	ResizeParentToFit();
-
+	
 	//关节连接指示灯
 	(m_theApp->Device_link_state[0])?(state_Gj1.Value=TRUE):(state_Gj1.Value=FALSE);
 	(m_theApp->Device_link_state[1])?(state_Gj2.Value=TRUE):(state_Gj2.Value=FALSE);
@@ -162,6 +208,39 @@ void CNEO_InterfaceView::OnInitialUpdate(){
 	StepSpeedMulti.SetValue(1);
 	StepSpeedAcc.SetValue(150);
 	StepSpeedDec.SetValue(150);
+	CutAngle.SetCurSel(ANGLE60);
+	CString str;
+	str.Format("%d",  5);
+	ShiftSpeedMuti.SetWindowText(str);
+	str.Format("%d",  3);
+	CutSpeedMuti.SetWindowText(str);
+	str.Format("%d",  20);
+	CutDeepth.SetWindowText(str);
+	CutDeepth.EnableWindow(FALSE);
+
+	x_outfile.open("OutFiles/x_pluse.txt");
+	y_outfile.open("OutFiles/y_pluse.txt");
+	z_outfile.open("OutFiles/z_pluse.txt");
+
+	x_realangle.open("OutFiles/x_realangle.txt");
+	y_realangle.open("OutFiles/y_realangle.txt");
+	z_realangle.open("OutFiles/z_realangle.txt");
+
+	ShiftFlag = FALSE;
+	CutFlag = FALSE;
+	ResetFlag = FALSE;
+	Mutex = CreateMutex(NULL,  false, "NEOs Lock");
+
+	for(int i=0; i<TotelDeviceNum; i++){
+		for(int j=0; j<AxisNum; j++){
+			m_count[i][j] = 0;    //初始化矫正计数器
+			PosInfo[i][j] = 0;
+		}
+	}
+
+	for (int i = 0; i<3; i++)
+		auto_count[i] = 0;
+
 
 	//初始化控制板卡参数信息
 	for(int i=0; i<TotelDeviceNum; i++){
@@ -186,14 +265,13 @@ void CNEO_InterfaceView::OnInitialUpdate(){
 			LC[i][j].PLSLogLever = 0;
 			LC[i][j].DIRLogLever = 0;
 			LC[i][j].nPulseNum = StepDvPulseNum.Value;
-			DL[i][j].Multiple = StepSpeedMulti.Value;       //倍率
-			DL[i][j].Acceleration = StepSpeedAcc.Value;				// 加速度(125~1000,000)(直线加减速驱动中加速度一直不变）
-			DL[i][j].Deceleration = StepSpeedDec.Value;				// 减速度(125~1000000)
+			DL[i][j].Multiple = LONG(StepSpeedMulti.Value);       //倍率
+			DL[i][j].Acceleration = LONG(StepSpeedAcc.Value);				// 加速度(125~1000,000)(直线加减速驱动中加速度一直不变）
+			DL[i][j].Deceleration = LONG(StepSpeedDec.Value);				// 减速度(125~1000000)
 			DL[i][j].StartSpeed = 300;                  // 初始速度
-			DL[i][j].DriveSpeed = StepSpeedBase.Value;      //驱动速度
+			DL[i][j].DriveSpeed = LONG(StepSpeedBase.Value);      //驱动速度
 			DL[i][j].DecIncRate = 1000;
 			DL[i][j].AccIncRate = 1000;
-			m_count[i][j] = 0;    //初始化矫正计数器
 		}
 	}
 	SetTimer(1, 20 , NULL);  // 启动定时器1，用来刷新计数器和各关节状态
@@ -357,17 +435,71 @@ bool CNEO_InterfaceView::Drive_GJ_Move(int DeviceIndex , int AxisIndex){
 
 void CNEO_InterfaceView::ClickShiftSwitch()
 {
-	// TODO: 在此处添加消息处理程序代码
+	MakeInputFiles();
+	initial_data(x_angle, x_pluse, x_angle_length, x_pluse_length, x_infile, x_outfile);
+	initial_data(y_angle, y_pluse, y_angle_length, y_pluse_length, y_infile, y_outfile);
+	initial_data(z_angle, z_pluse, z_angle_length, z_pluse_length, z_infile, z_outfile);
+
+	if(ShiftButton.Value){
+		if(CutButton.Value || ResetButton.Value || IsRunSingle()){
+			AfxMessageBox("有其他任务正在运行，请关闭重试!");
+			ShiftButton.Value ^= 0x1;
+		}
+		else{
+			ShiftFlag = TRUE;
+			AfxBeginThread(ShiftThread, LPVOID(this));
+		}
+	}else{
+		ShiftFlag = FALSE;
+		StopAllAxis();
+	}
 }
 
 void CNEO_InterfaceView::ClickCutSwitch()
 {
-	// TODO: 在此处添加消息处理程序代码
+	MakeInputFiles();
+	initial_data(x_angle, x_pluse, x_angle_length, x_pluse_length, x_infile, x_outfile);
+	initial_data(y_angle, y_pluse, y_angle_length, y_pluse_length, y_infile, y_outfile);
+	initial_data(z_angle, z_pluse, z_angle_length, z_pluse_length, z_infile, z_outfile);
+
+	if(CutButton.Value){
+		if(ShiftButton.Value || ResetButton.Value || IsRunSingle()){
+			AfxMessageBox("有其他任务正在运行，请关闭重试!");
+			CutButton.Value ^= 0x1;
+		}
+		else{
+			CutFlag = TRUE;
+			AfxBeginThread(CutThread, LPVOID(this));
+		}
+	}else{
+		CutFlag = FALSE;
+		StopAllAxis();
+	}
 }
 
+
+//[注]：仅用于正确运行完移位和切割过程后的复位操作
+//.................否则需要进行手动复位操作
 void CNEO_InterfaceView::ClickResetSwitch()
 {
-	// TODO: 在此处添加消息处理程序代码
+	MakeInputFiles();
+	initial_data(x_angle, x_pluse, x_angle_length, x_pluse_length, x_infile, x_outfile);
+	initial_data(y_angle, y_pluse, y_angle_length, y_pluse_length, y_infile, y_outfile);
+	initial_data(z_angle, z_pluse, z_angle_length, z_pluse_length, z_infile, z_outfile);
+
+	if(ResetButton.Value){
+		if(ShiftButton.Value || CutButton.Value || IsRunSingle()){
+			AfxMessageBox("有其他任务正在运行，请关闭重试!");
+			ResetButton.Value ^= 0x1;
+		}
+		else{
+			ResetFlag = TRUE;
+			AfxBeginThread(ResetThread, LPVOID(this));
+		}
+	}else{
+		ResetFlag = FALSE;
+		StopAllAxis();
+	}
 }
 
 void CNEO_InterfaceView::OnBnClickedClear()
@@ -395,7 +527,7 @@ bool CNEO_InterfaceView::IsRunSingle(){
 	return FALSE;
 }
 
-void CNEO_InterfaceView::UpdateState(int DeviceIndex){
+void CNEO_InterfaceView::UpdateGJState(int DeviceIndex){
 	USB1020_GetRR0Status(m_theApp->m_hDeviceApp[DeviceIndex], &(RR0[DeviceIndex]));
 	switch(DeviceIndex){
 		case 0:
@@ -434,7 +566,7 @@ void CNEO_InterfaceView::ReviseCtrlButtonValue(NI::CNiButton &Gj_Ctrl, int Devic
 	if(value != Gj_Ctrl.Value){
 		m_count[DeviceIndex][AxisIndex]++;
 		if(ReviseCount == m_count[DeviceIndex][AxisIndex]){
-			//保证不会自动变为运行状态
+			//保证控制按钮不会自动变为运行状态
 			if(TRUE == value){
 				m_count[DeviceIndex][AxisIndex] = 0;
 			}else{
@@ -447,5 +579,113 @@ void CNEO_InterfaceView::ReviseCtrlButtonValue(NI::CNiButton &Gj_Ctrl, int Devic
 }
 
 void CNEO_InterfaceView::UpdatePos(int DeviceIndex){
+	for (int AxisIndex = 0; AxisIndex<AxisNum; AxisIndex++)
+		PosInfo[DeviceIndex][AxisIndex] = USB1020_ReadLP(m_theApp->m_hDeviceApp[DeviceIndex], AxisIndex);
+}
 
+void CNEO_InterfaceView::RefreshAutoModeLight(){
+	CutState_Shift.SetValue(ShiftButton.Value);
+	CutState_Cutting.SetValue(CutButton.Value);
+	CutState_Reset.SetValue(ResetButton.Value);
+}
+
+void CNEO_InterfaceView::RefreshPosShow(){
+	CString str;
+	if(PULSENUMMODE == ShowStateMode.GetCurSel()){
+		str.Format("%d", PosInfo[0][0]);
+		Gj11_AngleShow.SetWindowText(str);
+		str.Format("%d", PosInfo[0][1]);
+		Gj12_AngleShow.SetWindowText(str);
+		str.Format("%d", PosInfo[0][2]);
+		Gj13_AngleShow.SetWindowText(str);
+		str.Format("%d", PosInfo[1][0]);
+		Gj21_AngleShow.SetWindowText(str);
+		str.Format("%d", PosInfo[1][1]);
+		Gj22_AngleShow.SetWindowText(str);
+		str.Format("%d", PosInfo[1][2]);
+		Gj23_AngleShow.SetWindowText(str);
+		str.Format("%d", PosInfo[2][0]);
+		Gj31_AngleShow.SetWindowText(str);
+		str.Format("%d", PosInfo[2][1]);
+		Gj32_AngleShow.SetWindowText(str);
+		str.Format("%d", PosInfo[2][2]);
+		Gj33_AngleShow.SetWindowText(str);
+	}
+	if(ANGLEMODE == ShowStateMode.GetCurSel()){
+		str.Format("%0.2f", ratio_k * PosInfo[0][0]);
+		Gj11_AngleShow.SetWindowText(str);
+		str.Format("%0.2f", ratio_k * PosInfo[0][1]);
+		Gj12_AngleShow.SetWindowText(str);
+		str.Format("%0.2f", ratio_k * PosInfo[0][2]);
+		Gj13_AngleShow.SetWindowText(str);
+		str.Format("%0.2f", ratio_k * PosInfo[1][0]);
+		Gj21_AngleShow.SetWindowText(str);
+		str.Format("%0.2f", ratio_k * PosInfo[1][1]);
+		Gj22_AngleShow.SetWindowText(str);
+		str.Format("%0.2f", ratio_k * PosInfo[1][2]);
+		Gj23_AngleShow.SetWindowText(str);
+		str.Format("%0.2f", ratio_k * PosInfo[2][0]);
+		Gj31_AngleShow.SetWindowText(str);
+		str.Format("%0.2f", ratio_k * PosInfo[2][1]);
+		Gj32_AngleShow.SetWindowText(str);
+		str.Format("%0.2f", ratio_k * PosInfo[2][2]);
+		Gj33_AngleShow.SetWindowText(str);
+	}
+}
+
+void CNEO_InterfaceView::StopAllAxis(){
+	for(int k=0; k<TotelDeviceNum; k++){
+		if(INVALID_HANDLE_VALUE != m_theApp->m_hDeviceApp[k]){
+			USB1020_InstStop(m_theApp->m_hDeviceApp[k], USB1020_ALLAXIS);
+		}
+	}
+}
+
+void CNEO_InterfaceView::MakeInputFiles(){
+	switch(CutAngle.GetCurSel()){
+		case ANGLE45:
+			x_infile.open("InFiles/data45_2cm/x_in.txt");
+			y_infile.open("InFiles/data45_2cm/y_in.txt");
+			z_infile.open("InFiles/data45_2cm/z_in.txt");
+			break;
+		case ANGLE60:
+			x_infile.open("InFiles/data60_2cm/x_in.txt");
+			y_infile.open("InFiles/data60_2cm/y_in.txt");
+			z_infile.open("InFiles/data60_2cm/z_in.txt");
+			break;
+		case ANGLE75:
+			x_infile.open("InFiles/data75_2cm/x_in.txt");
+			y_infile.open("InFiles/data75_2cm/y_in.txt");
+			z_infile.open("InFiles/data75_2cm/z_in.txt");
+			break;
+		default:
+			break;
+	}
+}
+
+void CNEO_InterfaceView::RefreshAutoModeCtrlButton(){
+	if(ShiftFlag != ShiftButton.Value){
+		auto_count[0]++;
+		if(ReviseCount == auto_count[0]){
+			ShiftButton.Value = ShiftFlag;
+		}
+	}else{
+		auto_count[0] = 0;
+	}
+	if(CutFlag != CutButton.Value){
+		auto_count[1]++;
+		if(ReviseCount * 2 == auto_count[1]){
+			CutButton.Value = CutFlag;
+		}
+	}else{
+		auto_count[1] = 0;
+	}
+	if(ResetFlag != ResetButton.Value){
+		auto_count[2]++;
+		if(ReviseCount * 2 == auto_count[2]){
+			ResetButton.Value = ResetFlag;
+		}
+	}else{
+		auto_count[2] = 0;
+	}
 }

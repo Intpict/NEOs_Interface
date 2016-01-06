@@ -2,6 +2,8 @@
 #include "afxwin.h"
 #include "nibutton.h"
 #include "NiNumEdit.h"
+#include <fstream>
+using namespace std;
 
 #if !defined(AFX_ADVIEW_H__890AFD7C_4E65_4B40_B646_D1E42C19FBC2__INCLUDED_)
 #define AFX_ADVIEW_H__890AFD7C_4E65_4B40_B646_D1E42C19FBC2__INCLUDED_
@@ -36,14 +38,19 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnClose();
 	virtual void OnInitialUpdate();
-	void UpdateState(int DeviceIndex);
+	void UpdateGJState(int DeviceIndex);
 	void UpdatePos(int DeviceIndex);
+	void RefreshAutoModeLight();
+	void RefreshPosShow();
+	void RefreshAutoModeCtrlButton();
 	bool Drive_GJ_Move(int DeviceIndex , int AxisIndex);
 	void GJ_Ctrl_Event(NI::CNiButton &Gj_Ctrl, int DeviceIndex , int AxisIndex);
 	void Cut_Ctrl_Event(NI::CNiButton &Cut_Ctrl, int DeviceIndex);
 	bool IsRunAuto();
 	bool IsRunSingle();
 	void ReviseCtrlButtonValue(NI::CNiButton &Gj_Ctrl, int DeviceIndex , int AxisIndex, bool value);
+	void StopAllAxis();
+	void MakeInputFiles();
 
 public:
 	NI::CNiButton state_Gj1;
@@ -71,25 +78,13 @@ public:
 	NI::CNiButton Gj33_Control;
 	NI::CNiButton Gj34_Control;
 
-	NI::CNiNumEdit CutMovSpeedMulti;
-	NI::CNiNumEdit CutSpeedMulti;
-	NI::CNiNumEdit CutDeepth;
 	NI::CNiNumEdit StepSpeedBase;
 	NI::CNiNumEdit StepSpeedMulti;
 	NI::CNiNumEdit StepSpeedAcc;
 	NI::CNiNumEdit StepSpeedDec; 
-	NI::CNiNumEdit StepDvPulseNum;  
+	NI::CNiNumEdit StepDvPulseNum; 
 
     //状态窗口显示变量
-    NI::CNiNumEdit Gj11_AngleShow;
-	NI::CNiNumEdit Gj12_AngleShow;
-	NI::CNiNumEdit Gj13_AngleShow;
-	NI::CNiNumEdit Gj21_AngleShow;
-	NI::CNiNumEdit Gj22_AngleShow;
-	NI::CNiNumEdit Gj23_AngleShow;
-	NI::CNiNumEdit Gj31_AngleShow;
-	NI::CNiNumEdit Gj32_AngleShow;
-	NI::CNiNumEdit Gj33_AngleShow;
 	NI::CNiButton Gj11_State;
 	NI::CNiButton Gj12_State;
 	NI::CNiButton Gj13_State;
@@ -102,6 +97,7 @@ public:
 	NI::CNiButton Gj32_State;
 	NI::CNiButton Gj33_State;
 	NI::CNiButton Gj34_State;
+
 public:
 	DECLARE_EVENTSINK_MAP()
 
@@ -133,6 +129,7 @@ public:
 
 public:
 	afx_msg void OnCbnSelchangeComboStepDriver();
+	afx_msg void OnBnClickedClear();
 
 private:
 	USB1020_PARA_DataList DL[3][3];		//公用配置参数，分别对应三关节的X，Y，Z轴     
@@ -141,7 +138,40 @@ private:
 	USB1020_PARA_RR0 RR0[3];	   //状态寄存器RR0
 	LONG PosInfo[3][3];     //存储各关节位置信息
 	LONG m_count[3][3];    //用于矫正定长模式下的关节启动按钮状态
-	afx_msg void OnBnClickedClear();
+	LONG auto_count[3];    //用于矫正AutoMode的按钮状态
+
+public:
+	bool ShiftFlag;
+	bool CutFlag;
+	bool ResetFlag;
+	ifstream x_infile;
+	ifstream y_infile;
+	ifstream z_infile;
+	ofstream x_outfile;
+	ofstream y_outfile;
+	ofstream z_outfile;
+	ofstream x_realangle;
+	ofstream y_realangle;
+	ofstream z_realangle;
+
+private:
+	HANDLE Mutex;
+
+public:
+	CEdit ShiftSpeedMuti;
+	CEdit CutSpeedMuti;
+	CEdit CutDeepth;
+
+public:
+	CEdit Gj11_AngleShow;
+	CEdit Gj12_AngleShow;
+	CEdit Gj13_AngleShow;
+	CEdit Gj21_AngleShow;
+	CEdit Gj22_AngleShow;
+	CEdit Gj23_AngleShow;
+	CEdit Gj31_AngleShow;
+	CEdit Gj32_AngleShow;
+	CEdit Gj33_AngleShow;
 };
 
 #endif

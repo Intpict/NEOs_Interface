@@ -72,8 +72,19 @@
 #define IDC_ONLY_EXPLAIN2               1078
 #define IDC_STATIC_LOGO                 1079
 #define IDC_COMBO_CUT_ANGLE             1080
-#define IDC_BUTTON1                     1082
 #define IDC_CLEAR                       1082
+#define IDC_SHIFT_SPEED_MUTI            1083
+#define IDC_CUT_SPEED_MUTI              1084
+#define IDC_CUT_DEEPTH                  1085
+#define IDC_SHOW_ANGLE12                1086
+#define IDC_SHOW_ANGLE13                1087
+#define IDC_SHOW_ANGLE11                1088
+#define IDC_SHOW_ANGLE21                1089
+#define IDC_SHOW_ANGLE22                1090
+#define IDC_SHOW_ANGLE23                1091
+#define IDC_SHOW_ANGLE31                1092
+#define IDC_SHOW_ANGLE32                1093
+#define IDC_SHOW_ANGLE33                1094
 #define ID_32771                        32771
 #define ID_32772                        32772
 #define ID_CreateIntFace                32773
@@ -84,7 +95,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        140
 #define _APS_NEXT_COMMAND_VALUE         32774
-#define _APS_NEXT_CONTROL_VALUE         1083
+#define _APS_NEXT_CONTROL_VALUE         1084
 #define _APS_NEXT_SYMED_VALUE           104
 #endif
 #endif

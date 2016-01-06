@@ -24,11 +24,19 @@
 
 #include "USB1020.h"
 #include "NiIncludes.h"
+#include <iomanip>
+#include <stdlib.h>
+#include <string>
 
 //分别对应三关节控制卡物理ID号
 #define   USB1020_1   1
 #define   USB1020_2   2
 #define   USB1020_3   4
+
+//切割角度
+#define   ANGLE45    0
+#define   ANGLE60    1
+#define   ANGLE75    2
 
 //总的连接设备数
 const int TotelDeviceNum = 3;   
@@ -41,3 +49,6 @@ const int ReviseCount = 5;
 
 #define   PULSENUMMODE    0x1
 #define   ANGLEMODE           0x0
+
+//脉冲/角度转换参数
+const float ratio_k = 0.0001/0.36;
