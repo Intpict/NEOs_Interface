@@ -176,6 +176,9 @@ void CNEO_InterfaceView::OnTimer(UINT_PTR nIDEvent){
 void CNEO_InterfaceView::OnClose(){
 	KillTimer(1);
 	m_theApp = NULL;
+	ShiftFlag = FALSE;
+	CutFlag = FALSE;
+	ResetFlag = FALSE;
 	CFormView::OnClose();
 }
 
